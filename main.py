@@ -3,11 +3,13 @@ import pandas as pd
 import feature_engineering as fe
 import image_conversion as ic
 import os
-
+from tensorflow.keras.models import load_model
 
 
 PATH = os.path.dirname(__file__)
 DATA_PATH = os.path.join(PATH, 'data')
+IMAGES_PATH = os.path.join(PATH, 'images/train')
+MODEL_PATH = os.path.join(PATH, 'models')
 data_name = 'DJI_1d_10y_signal.csv'
 
 data = pd.read_csv(os.path.join(DATA_PATH, data_name))
@@ -19,11 +21,24 @@ data_cnn = data_cnn[col_name]
 ic.data_to_gaf(data_cnn)
 
 
-###### TO DO - CNN Model ########
+###### CNN Model ########
+train_generator, validation_generator, test_generator = fe.load_data(image_path=IMAGES_PATH)
+
+model = md.fit_cnn(EPOCHS=5, SPLIT=0.2, LR=0.001,
+                   train_generator=train_generator, validation_generator=validation_generator, test_generator=test_generator)
+
+
+
+scores = model.evaluate_generator(test_generator, steps=5)
+print("{0}s: {1:.2f}%".format(model.metrics_names[1], scores[1] * 100))
+
 
 ###### TO DO - LSTM Model ########
 
 ###### TO DO - Attention Model ########
+
+
+
 
 data = data.drop(["Date"], axis=1)
 data = data.ffill(axis=0)

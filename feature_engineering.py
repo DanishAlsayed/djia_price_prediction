@@ -32,6 +32,9 @@ import matplotlib.pyplot as plt
 import ta
 from sklearn.preprocessing import MinMaxScaler
 
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+import glob
+import os
 
 class Signals:
 
@@ -231,3 +234,110 @@ def order_differencing(data, period):
     data["Signal"] = signal
     data = data.dropna()
     return data
+
+
+###### Deep Learning Related ########
+PATH = os.path.dirname(__file__)
+IMAGES_PATH = os.path.join(PATH, 'images/train')
+
+def ensemble_data(path):
+    """
+    :param networks_chunks: As Integer
+    :param path: As String
+    :return: List of overlapping index DataFrames
+    """
+    dataframes = []
+    for sub_folder in ['BUY', 'SELL']:
+        images = glob.glob(path + '/{}/*.png'.format(sub_folder))  # Get path to images
+        dates = [dt.split('/')[-1].split('\\')[-1].split('.')[0].replace('_', '-') for dt in images]
+        data_slice = pd.DataFrame({'Images': images, 'Labels': [sub_folder] * len(images), 'Dates': dates})
+        data_slice['Dates'] = pd.to_datetime(data_slice['Dates'])
+        dataframes.append(data_slice)
+    data = pd.concat(dataframes)
+    data.sort_values(by='Dates', inplace=True)
+    del data['Dates']
+
+    return data
+
+
+
+def load_data(train_test_split=0.2, validation_split=0.3, shuffle=True ,image_path=IMAGES_PATH):
+    """
+    
+    :param validation_split: 
+    :param image_path: 
+    :return: 
+    """
+    
+    
+    # All images will be rescaled by 1./255
+    train_validate_datagen = ImageDataGenerator(rescale=1 / 255, validation_split=validation_split)  # set validation split
+    test_datagen = ImageDataGenerator(rescale=1 / 255)
+    data_chunks = ensemble_data(image_path)
+
+    split_num = round(len(data_chunks) * train_test_split) * -1
+    df_train = data_chunks.iloc[:split_num]
+    df_test = data_chunks.iloc[split_num:]
+
+    if shuffle:
+        train_generator = train_validate_datagen.flow_from_dataframe(
+            dataframe=df_train,
+            directory=image_path,
+            target_size=(255, 255),
+            x_col='Images',
+            y_col='Labels',
+            batch_size=32,
+            class_mode='binary',
+            subset='training')
+
+        validation_generator = train_validate_datagen.flow_from_dataframe(
+            dataframe=df_train,
+            directory=image_path,
+            target_size=(255, 255),
+            x_col='Images',
+            y_col='Labels',
+            batch_size=32,
+            class_mode='binary',
+            subset='validation')
+
+        test_generator = test_datagen.flow_from_dataframe(
+            dataframe=df_test,
+            x_col='Images',
+            y_col='Labels',
+            directory=image_path,
+            target_size=(255, 255),
+            class_mode='binary')
+
+    else:
+        train_generator = train_validate_datagen.flow_from_dataframe(
+            dataframe=df_train,
+            directory=image_path,
+            target_size=(255, 255),
+            x_col='Images',
+            y_col='Labels',
+            batch_size=32,
+            class_mode='binary',
+            shuffle=False,
+            subset='training')
+
+        validation_generator = train_validate_datagen.flow_from_dataframe(
+            dataframe=df_train,
+            directory=image_path,
+            target_size=(255, 255),
+            x_col='Images',
+            y_col='Labels',
+            batch_size=32,
+            class_mode='binary',
+            shuffle=False,
+            subset='validation')
+
+        test_generator = test_datagen.flow_from_dataframe(
+            dataframe=df_test,
+            x_col='Images',
+            y_col='Labels',
+            directory=image_path,
+            target_size=(255, 255),
+            shuffle=False,
+            class_mode='binary')
+
+    return train_generator, validation_generator, test_generator

@@ -1,9 +1,29 @@
 import modelling as md
 import pandas as pd
 import feature_engineering as fe
+import image_conversion as ic
 import os
 
-data = pd.read_csv("data/DJI_1d_10y_signal.csv")
+
+
+PATH = os.path.dirname(__file__)
+DATA_PATH = os.path.join(PATH, 'data')
+data_name = 'DJI_1d_10y_signal.csv'
+
+data = pd.read_csv(os.path.join(DATA_PATH, data_name))
+
+# Create one more df from data for converting images
+col_name = ['Date', 'Close']
+data_cnn= data.copy()
+data_cnn = data_cnn[col_name]
+ic.data_to_gaf(data_cnn)
+
+
+###### TO DO - CNN Model ########
+
+###### TO DO - LSTM Model ########
+
+###### TO DO - Attention Model ########
 
 data = data.drop(["Date"], axis=1)
 data = data.ffill(axis=0)
@@ -12,6 +32,11 @@ xTrain, xTest, yTrain, yTest = fe.ordered_train_test_split(data, "Signal")
 
 results = pd.DataFrame()
 results["true_y"] = yTest
+
+
+"""
+Classification On Close Price
+"""
 
 ada = md.fit_ada_boost(xTrain, yTrain, True)
 results["prediction"] = ada.predict(xTest)
@@ -54,6 +79,7 @@ results["prediction"] = fnn.predict(xTest_fnn).flatten()
 print("FNN")
 print(md.get_results(yTest_fnn, results["prediction"]))
 print('Accuracy of the FNN on test set: {:.3f}'.format(md.accuracy_score(yTest_fnn, results["prediction"])))
+
 
 """
 Regression On Close Price

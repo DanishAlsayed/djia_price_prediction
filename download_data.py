@@ -19,7 +19,8 @@ def download():
             auto_adjust=True,
             prepost=True,
             threads=True,
-            proxy=None
+            proxy=None,
+            progress=False  #suppress [100%**] 1 of 1 completed message
         )
         file = file_name(inst[1])
         data.to_csv(file)

@@ -1,0 +1,15 @@
+rename of cnn model model
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# Date:      Sat Apr 24 12:17:54 2021 +0800
+#
+# On branch image_conversion
+# Your branch is ahead of 'origin/image_conversion' by 1 commit.
+#   (use "git push" to publish your local commits)
+#
+# Changes to be committed:
+#	renamed:    models/computer_vision_model_20210423220307_58.125001192092896%.h5 -> models/cnn_20210423220307_58.12%.h5
+#	renamed:    models/computer_vision_summary_20210423220307.h5 -> models/cnn_summary_20210423220307.h5
+#

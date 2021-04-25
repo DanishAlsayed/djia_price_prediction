@@ -22,6 +22,8 @@ from tensorflow.keras.callbacks import ReduceLROnPlateau
 from tensorflow.keras.layers import *
 from tensorflow.keras.optimizers import Adam
 
+from attention import Attention
+
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import LogisticRegression
@@ -47,7 +49,7 @@ def fit_cnn(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_gener
         BatchNormalization(),
         Conv2D(32, kernel_size=(3, 3), strides=2, padding='same', activation='relu'),
         BatchNormalization(),
-        Dropout(0.4),
+        Dropout(0.2),
         # Second Convolution
         Conv2D(64, kernel_size=(3, 3), activation='relu'),
         BatchNormalization(),
@@ -55,12 +57,12 @@ def fit_cnn(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_gener
         BatchNormalization(),
         Conv2D(64, kernel_size=(3, 3), strides=2, padding='same', activation='relu'),
         BatchNormalization(),
-        Dropout(0.4),
+        Dropout(0.2),
         # Third Convolution
         Conv2D(128, kernel_size=4, activation='relu'),
         BatchNormalization(),
         Flatten(),
-        Dropout(0.4),
+        Dropout(0.2),
         # Output layer
         Dense(1, activation='sigmoid')]
     )
@@ -105,6 +107,54 @@ def fit_cnn(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_gener
 
     return model
 
+
+def fit_lstm(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_generator):
+    
+    steps_per_epoch = train_generator.n // train_generator.batch_size
+    validation_steps = validation_generator.n // validation_generator.batch_size
+    
+    model = tf.keras.models.Sequential([
+        ConvLSTM2D(filters=32, kernel_size=(3, 3), input_shape=(5, 255, 255, 3)),
+        BatchNormalization(),
+        Dropout(0.2),
+        Attention(32),
+        Flatten(),
+        Dense(1, activation='sigmoid'),
+
+    ])
+    
+    model.compile(optimizer=Adam(lr=LR), loss='binary_crossentropy', metrics=['acc'])
+    print(model.summary())
+    learning_rate_reduction = ReduceLROnPlateau(monitor='val_acc', patience=3, verbose=0, factor=0.5, min_lr=0.00001)
+    history = model.fit(x=train_generator,
+                        epochs=EPOCHS,
+                        steps_per_epoch=steps_per_epoch,
+                        validation_data=validation_generator,
+                        callbacks=[learning_rate_reduction],
+                        verbose=1)
+
+    scores = model.evaluate_generator(test_generator, steps=5)
+    print("{0}s: {1:.2f}%".format(model.metrics_names[1], scores[1] * 100))
+
+    model.save(os.path.join(repo, 'lstm_{0}_{1:.2f}%.h5'.format(timestamp, scores[1] * 100)))
+
+
+    # All LOGGING
+    string_list = []
+    model.summary(print_fn=lambda x: string_list.append(x))
+    summary = "\n".join(string_list)
+
+    logging = ['{0}: {1}'.format(key, val[-1]) for key, val in history.history.items()]
+    log = 'Results:\n' + '\n'.join(logging)
+
+    f = open(os.path.join(repo, 'lstm_summary_{0}.h5'.format(timestamp)),
+             'w')
+    f.write("EPOCHS: {0}\nSteps per epoch: {1}\nValidation steps: {2}\nVal Split:{3}\nLearning RT:{5}\n\n\n{4}"
+            "\n\n=========TRAINING LOG========\n{6}".format(EPOCHS, steps_per_epoch, validation_steps, SPLIT, summary,
+                                                            LR, log))
+    f.close()
+
+    return model
 
 def fit_ada_boost(features, labels,reg=False):
     param_dist = {

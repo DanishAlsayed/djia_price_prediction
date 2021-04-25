@@ -33,6 +33,7 @@ import ta
 from sklearn.preprocessing import MinMaxScaler
 
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from TimeDistributedImageDataGenerator.TimeDistributedImageDataGenerator import TimeDistributedImageDataGenerator
 import glob
 import os
 
@@ -306,6 +307,7 @@ def load_data(train_test_split=0.2, validation_split=0.3, shuffle=True ,image_pa
             y_col='Labels',
             directory=image_path,
             target_size=(255, 255),
+            shuffle=False,
             class_mode='binary')
 
     else:
@@ -339,5 +341,49 @@ def load_data(train_test_split=0.2, validation_split=0.3, shuffle=True ,image_pa
             target_size=(255, 255),
             shuffle=False,
             class_mode='binary')
+
+    return train_generator, validation_generator, test_generator
+
+
+def load_time_series_data(train_test_split=0.2, validation_split=0.3, shuffle=True ,image_path=IMAGES_PATH):
+    train_validate_datagen = TimeDistributedImageDataGenerator(rescale=1 / 255, validation_split=validation_split, time_steps=5)
+    test_datagen = TimeDistributedImageDataGenerator(rescale=1 / 255, time_steps=5)
+
+    data_chunks = ensemble_data(image_path)
+
+    split_num = round(len(data_chunks) * train_test_split) * -1
+    df_train = data_chunks.iloc[:split_num]
+    df_test = data_chunks.iloc[split_num:]
+
+    train_generator = train_validate_datagen.flow_from_dataframe(
+        dataframe=df_train,
+        directory=image_path,
+        target_size=(255, 255),
+        x_col='Images',
+        y_col='Labels',
+        batch_size=32,
+        class_mode='binary',
+        subset='training')
+
+    validation_generator = train_validate_datagen.flow_from_dataframe(
+        dataframe=df_train,
+        directory=image_path,
+        target_size=(255, 255),
+        x_col='Images',
+        y_col='Labels',
+        batch_size=32,
+        class_mode='binary',
+        subset='validation')
+
+    test_generator = test_datagen.flow_from_dataframe(
+        dataframe=df_test,
+        x_col='Images',
+        y_col='Labels',
+        directory=image_path,
+        target_size=(255, 255),
+        shuffle=False,
+        class_mode='binary')
+
+    print(np.shape(train_generator.next()[0]))
 
     return train_generator, validation_generator, test_generator

@@ -50,10 +50,7 @@ def model_save_and_logging(model, history, model_score, model_name, epochs, spli
     model.save(os.path.join(repo, '{0}_{1}_{2:.2f}%.h5'.format(model_name, timestamp, model_score[1] * 100)))
 
     # Logging history
-    # with open(os.path.join(repo, '{0}_history_{1}_{2:.2f}%'.format(model_name, timestamp, model_score[1] * 100)), 'wb') as file:
-    #     pickle.dump(history.history, file)
-
-    np.save(os.path.join(repo, '{0}_history_{1}_{2:.2f}%.npy'.format(model_name, timestamp, model_score[1] * 100)), history)
+    np.save(os.path.join(repo, '{0}_history_{1}_{2:.2f}%.npy'.format(model_name, timestamp, model_score[1] * 100)), history.history)
 
     # Logging summary to file
     string_list = []
@@ -75,8 +72,8 @@ def model_save_and_logging(model, history, model_score, model_name, epochs, spli
 
 def model_plot(model_name, history, plot_path):
 
-    plt.plot(history.history['accuracy'])
-    plt.ploth(history.history['val_accuracy'])
+    plt.plot(history['accuracy'])
+    plt.ploth(history['val_accuracy'])
     plt.title('{0} Model accuracy'.format(model_name))
     plt.ylabel('Accuracy')
     plt.xlabel('Epoch')
@@ -84,8 +81,8 @@ def model_plot(model_name, history, plot_path):
     plt.savefig(os.path.join(plot_path, '{0}_acc_plot'.format(model_name)))
     plt.clf()
 
-    plt.plot(history.history['loss'])
-    plt.plot(history.history['val_loss'])
+    plt.plot(history['loss'])
+    plt.plot(history['val_loss'])
     plt.title('Model loss')
     plt.ylabel('Loss')
     plt.xlabel('Epoch')
@@ -214,8 +211,45 @@ def fit_lstm(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_gene
     return model
 
 
-def fit_attention_lstm():
-    pass
+def fit_attention_lstm(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_generator):
+    time_steps = 5
+    h, w, c = 255, 255, 3
+
+    steps_per_epoch = train_generator.n // train_generator.batch_size
+    validation_steps = validation_generator.n // validation_generator.batch_size
+
+    inputs = Input(shape=(time_steps, h, w, c))
+    # push time_steps in batch_dim to process all the sequence independently of their orders (CNN features).
+    x = Lambda(lambda y: K.reshape(y, (-1, h, w, c)))(inputs)
+    # apply convolutions to each image
+    x = Conv2D(16, 5)(x)
+    x = MaxPool2D()(x)
+    # reshaping.
+    # 3D input shape (batch, timesteps, input_dim)
+    num_features_cnn = np.prod(K.int_shape(x)[1:])
+    x = Lambda(lambda y: K.reshape(y, (-1, time_steps, num_features_cnn)))(x)
+    x = LSTM(64, return_sequences=True)(x)
+    x = Attention(32)(x)
+    x = Dense(1, activation='sigmoid')(x)
+
+    model = Model(inputs=[inputs], outputs=[x])
+
+    model.compile(optimizer=Adam(lr=LR), loss='binary_crossentropy', metrics=['acc'])
+
+    print(model.summary())
+    # history = model.fit(train_generator, validation_data=validation_generator, epochs=5)
+    learning_rate_reduction = ReduceLROnPlateau(monitor='val_acc', patience=3, verbose=0, factor=0.5, min_lr=0.00001)
+    history = model.fit(x=train_generator,
+                        epochs=EPOCHS,
+                        steps_per_epoch=steps_per_epoch,
+                        validation_data=validation_generator,
+                        callbacks=[learning_rate_reduction],
+                        verbose=1)
+
+    scores = model.evaluate_generator(test_generator, steps=5)
+    print("TCN {0}s: {1:.2f}%".format(model.metrics_names[1], scores[1] * 100))
+
+    return model, history, scores
 
 
 def fit_tcn(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_generator):
@@ -241,15 +275,6 @@ def fit_tcn(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_gener
 
     model = Model(inputs=[inputs], outputs=[x])
 
-    model = tf.keras.models.Sequential([
-        ConvLSTM2D(filters=32, kernel_size=(3, 3), input_shape=(5, 255, 255, 3), return_sequences=True),
-        ConvLSTM2D(filters=32, kernel_size=(3, 3)),
-        Lambda(lambda y: K.reshape(y, (-1, time_steps, num_features_cnn))),
-        TCN(16),
-        Dense(1, activation='sigmoid'),
-
-    ])
-
     model.compile(optimizer=Adam(lr=LR), loss='binary_crossentropy', metrics=['acc'])
 
     print(model.summary())
@@ -265,24 +290,6 @@ def fit_tcn(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_gener
 
     scores = model.evaluate_generator(test_generator, steps=5)
     print("TCN {0}s: {1:.2f}%".format(model.metrics_names[1], scores[1] * 100))
-
-    # model.save(os.path.join(repo, 'tcn_{0}_{1:.2f}%.h5'.format(timestamp, scores[1] * 100)))
-    #
-    #
-    # # All LOGGING
-    # string_list = []
-    # model.summary(print_fn=lambda x: string_list.append(x))
-    # summary = "\n".join(string_list)
-    #
-    # logging = ['{0}: {1}'.format(key, val[-1]) for key, val in history.history.items()]
-    # log = 'Results:\n' + '\n'.join(logging)
-    #
-    # f = open(os.path.join(repo, 'tcn_summary_{0}.h5'.format(timestamp)),
-    #          'w')
-    # f.write("EPOCHS: {0}\nSteps per epoch: {1}\nValidation steps: {2}\nVal Split:{3}\nLearning RT:{5}\n\n\n{4}"
-    #         "\n\n=========TRAINING LOG========\n{6}".format(EPOCHS, steps_per_epoch, validation_steps, SPLIT, summary,
-    #                                                         LR, log))
-    # f.close()
 
     return model, history, scores
 

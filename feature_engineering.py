@@ -262,7 +262,7 @@ def ensemble_data(path):
 
 
 
-def load_data(train_test_split=0.2, validation_split=0.3, shuffle=True ,image_path=IMAGES_PATH):
+def load_data(train_test_split=0.2, validation_split=0.3 ,image_path=IMAGES_PATH):
     """
     
     :param validation_split: 
@@ -280,72 +280,42 @@ def load_data(train_test_split=0.2, validation_split=0.3, shuffle=True ,image_pa
     df_train = data_chunks.iloc[:split_num]
     df_test = data_chunks.iloc[split_num:]
 
-    if shuffle:
-        train_generator = train_validate_datagen.flow_from_dataframe(
-            dataframe=df_train,
-            directory=image_path,
-            target_size=(255, 255),
-            x_col='Images',
-            y_col='Labels',
-            batch_size=32,
-            class_mode='binary',
-            subset='training')
 
-        validation_generator = train_validate_datagen.flow_from_dataframe(
-            dataframe=df_train,
-            directory=image_path,
-            target_size=(255, 255),
-            x_col='Images',
-            y_col='Labels',
-            batch_size=32,
-            class_mode='binary',
-            subset='validation')
+    train_generator = train_validate_datagen.flow_from_dataframe(
+        dataframe=df_train,
+        directory=image_path,
+        target_size=(255, 255),
+        x_col='Images',
+        y_col='Labels',
+        batch_size=32,
+        class_mode='binary',
+        subset='training')
 
-        test_generator = test_datagen.flow_from_dataframe(
-            dataframe=df_test,
-            x_col='Images',
-            y_col='Labels',
-            directory=image_path,
-            target_size=(255, 255),
-            shuffle=False,
-            class_mode='binary')
+    validation_generator = train_validate_datagen.flow_from_dataframe(
+        dataframe=df_train,
+        directory=image_path,
+        target_size=(255, 255),
+        x_col='Images',
+        y_col='Labels',
+        batch_size=32,
+        class_mode='binary',
+        subset='validation')
 
-    else:
-        train_generator = train_validate_datagen.flow_from_dataframe(
-            dataframe=df_train,
-            directory=image_path,
-            target_size=(255, 255),
-            x_col='Images',
-            y_col='Labels',
-            batch_size=32,
-            class_mode='binary',
-            shuffle=False,
-            subset='training')
+    test_generator = test_datagen.flow_from_dataframe(
+        dataframe=df_test,
+        x_col='Images',
+        y_col='Labels',
+        directory=image_path,
+        target_size=(255, 255),
+        shuffle=False,
+        class_mode='binary')
 
-        validation_generator = train_validate_datagen.flow_from_dataframe(
-            dataframe=df_train,
-            directory=image_path,
-            target_size=(255, 255),
-            x_col='Images',
-            y_col='Labels',
-            batch_size=32,
-            class_mode='binary',
-            shuffle=False,
-            subset='validation')
 
-        test_generator = test_datagen.flow_from_dataframe(
-            dataframe=df_test,
-            x_col='Images',
-            y_col='Labels',
-            directory=image_path,
-            target_size=(255, 255),
-            shuffle=False,
-            class_mode='binary')
 
     return train_generator, validation_generator, test_generator
 
 
-def load_time_series_data(train_test_split=0.2, validation_split=0.3, shuffle=True ,image_path=IMAGES_PATH):
+def load_time_series_data(train_test_split=0.2, validation_split=0.3,image_path=IMAGES_PATH):
     train_validate_datagen = TimeDistributedImageDataGenerator(rescale=1 / 255, validation_split=validation_split, time_steps=5)
     test_datagen = TimeDistributedImageDataGenerator(rescale=1 / 255, time_steps=5)
 

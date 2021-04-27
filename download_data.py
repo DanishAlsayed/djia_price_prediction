@@ -26,4 +26,5 @@ def download():
         data.to_csv(file)
 
 
-download()
+if __name__=='__main__':
+    download()

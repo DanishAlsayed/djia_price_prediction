@@ -13,12 +13,9 @@ TRAIN_PATH = os.path.join(GAF, 'train')
 TRAIN_BUY = os.path.join(TRAIN_PATH, 'BUY')
 TRAIN_SELL = os.path.join(TRAIN_PATH, 'SELL')
 MODELS_PATH = os.path.join(PATH, 'models')
+PLOT_PATH = os.path.join(PATH, 'plots')
 
 def data_to_gaf(df):
-    print('CONVERTING TIME-SERIES TO IMAGES')
-
-    print('CREATE DIRECTORIES')
-    create_all_dir(GAF, TRAIN_PATH, TRAIN_BUY, TRAIN_SELL, MODELS_PATH)
 
     # Check if directories is empty
     if len(os.listdir(TRAIN_BUY)) == 0 and len(os.listdir(TRAIN_SELL)) == 0:
@@ -38,22 +35,23 @@ def create_dir(path):
     if not os.path.exists(path):
         os.mkdir(path)
 
-def create_all_dir(GAF, TRAIN_PATH, TRAIN_LONG, TRAIN_SHORT,MODELS_PATH):
+def create_all_dir():
     # Creates directories and sub directories needed for the project to run
     """
 
     :param GAF: String
     :param TRAIN_PATH: String
-    :param TRAIN_LONG: String
-    :param TRAIN_SHORT: String
+    :param TRAIN_BUY: String
+    :param TRAIN_SELL: String
     :param MODELS_PATH: String
     :return:
     """
     create_dir(GAF)
     create_dir(TRAIN_PATH)
-    create_dir(TRAIN_LONG)
-    create_dir(TRAIN_SHORT)
+    create_dir(TRAIN_BUY)
+    create_dir(TRAIN_SELL)
     create_dir(MODELS_PATH)
+    create_dir(PLOT_PATH)
 
 
 def set_gaf_data(df):

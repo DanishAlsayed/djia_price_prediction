@@ -3,3 +3,8 @@ pyts==0.11.0
 matplotlib==3.1.3
 numpy==1.18.5
 tensorflow==2.4.1
+yfinance
+statsmodels
+TimeDistributedImageDataGenerator
+keras-tcn
+attention

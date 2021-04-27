@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import os
 import datetime as dt
+import pickle
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import AdaBoostClassifier
@@ -16,11 +17,14 @@ import feature_engineering as fe
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
+from tensorflow.keras import Input, Model, layers
 from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
 from tensorflow.keras.callbacks import ReduceLROnPlateau
 from tensorflow.keras.layers import *
 from tensorflow.keras.optimizers import Adam
+import tensorflow.keras.backend as K
+
+from tcn import TCN
 
 from attention import Attention
 
@@ -28,15 +32,68 @@ from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import LogisticRegression
 
+import matplotlib
+
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
+
+from keras.utils import plot_model
+
+
 path = os.path.dirname(__file__)
 repo = os.path.join(path, 'models')
 timestamp = dt.datetime.now().strftime("%Y%m%d%H%M%S")
 
+
+def model_save_and_logging(model, history, model_score, model_name, epochs, split, lr):
+    # Save model
+    model.save(os.path.join(repo, '{0}_{1}_{2:.2f}%.h5'.format(model_name, timestamp, model_score[1] * 100)))
+
+    # Logging history
+    # with open(os.path.join(repo, '{0}_history_{1}_{2:.2f}%'.format(model_name, timestamp, model_score[1] * 100)), 'wb') as file:
+    #     pickle.dump(history.history, file)
+
+    np.save(os.path.join(repo, '{0}_history_{1}_{2:.2f}%.npy'.format(model_name, timestamp, model_score[1] * 100)), history)
+
+    # Logging summary to file
+    string_list = []
+    model.summary(print_fn=lambda x: string_list.append(x))
+    summary = "\n".join(string_list)
+
+    logging = ['{0}: {1}'.format(key, val[-1]) for key, val in history.history.items()]
+    log = 'Results:\n' + '\n'.join(logging)
+
+    f = open(os.path.join(repo, '{0}_summary_{1}.h5'.format(model_name,timestamp)),
+             'w')
+
+    f.write("EPOCHS: {0}\nVal Split:{1}\nLearning RT:{3}\n\n\n{2}"
+            "\n\n=========TRAINING LOG========\n{4}".format(epochs, split, summary,
+                                                            lr, log))
+    f.close()
+
+
+
+def model_plot(model_name, history, plot_path):
+
+    plt.plot(history.history['accuracy'])
+    plt.ploth(history.history['val_accuracy'])
+    plt.title('{0} Model accuracy'.format(model_name))
+    plt.ylabel('Accuracy')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+    plt.savefig(os.path.join(plot_path, '{0}_acc_plot'.format(model_name)))
+    plt.clf()
+
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('Model loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+    plt.savefig(os.path.join(plot_path, '{0}_loss_plot'.format(model_name)))
+
+
 def fit_cnn(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_generator):
-    #  Ensemble CNN network to train a CNN model on GAF images labeled Long and Short
-    # path = os.path.dirname(__file__)
-    # repo = os.path.join(path, 'models')
-    # timestamp = dt.datetime.now().strftime("%Y%m%d%H%M%S")
     
     steps_per_epoch = train_generator.n // train_generator.batch_size
     validation_steps = validation_generator.n // validation_generator.batch_size
@@ -85,26 +142,27 @@ def fit_cnn(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_gener
                                                max(history.history['val_acc'])))
 
     scores = model.evaluate_generator(test_generator, steps=5)
-    #print("{0}s: {1:.2f}%".format(model.metrics_names[1], scores[1] * 100))
+    print("{0}s: {1:.2f}%".format(model.metrics_names[1], scores[1] * 100))
 
-    model.save(os.path.join(repo, 'cnn_{0}_{1:.2f}%.h5'.format(timestamp, scores[1] * 100)))
+    # model.save(os.path.join(repo, 'cnn_{0}_{1:.2f}%.h5'.format(timestamp, scores[1] * 100)))
+    #
+    #
+    # # Logging summary to file
+    # string_list = []
+    # model.summary(print_fn=lambda x: string_list.append(x))
+    # summary = "\n".join(string_list)
+    #
+    # logging = ['{0}: {1}'.format(key, val[-1]) for key, val in history.history.items()]
+    # log = 'Results:\n' + '\n'.join(logging)
+    #
+    # f = open(os.path.join(repo, 'cnn_summary_{0}.h5'.format(timestamp)),
+    #          'w')
+    # f.write("EPOCHS: {0}\nSteps per epoch: {1}\nValidation steps: {2}\nVal Split:{3}\nLearning RT:{5}\n\n\n{4}"
+    #         "\n\n=========TRAINING LOG========\n{6}".format(EPOCHS, steps_per_epoch, validation_steps, SPLIT, summary,
+    #                                                         LR, log))
+    # f.close()
 
-
-    # All LOGGING
-    string_list = []
-    model.summary(print_fn=lambda x: string_list.append(x))
-    summary = "\n".join(string_list)
-
-    logging = ['{0}: {1}'.format(key, val[-1]) for key, val in history.history.items()]
-    log = 'Results:\n' + '\n'.join(logging)
-
-    f = open(os.path.join(repo, 'cnn_summary_{0}.h5'.format(timestamp)),
-             'w')
-    f.write("EPOCHS: {0}\nSteps per epoch: {1}\nValidation steps: {2}\nVal Split:{3}\nLearning RT:{5}\n\n\n{4}"
-            "\n\n=========TRAINING LOG========\n{6}".format(EPOCHS, steps_per_epoch, validation_steps, SPLIT, summary,
-                                                            LR, log))
-    f.close()
-
+    
     return model
 
 
@@ -114,10 +172,9 @@ def fit_lstm(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_gene
     validation_steps = validation_generator.n // validation_generator.batch_size
     
     model = tf.keras.models.Sequential([
-        ConvLSTM2D(filters=32, kernel_size=(3, 3), input_shape=(5, 255, 255, 3)),
-        BatchNormalization(),
+        ConvLSTM2D(filters=32, kernel_size=(3, 3), input_shape=(5, 255, 255, 3), return_sequences=True),
+        ConvLSTM2D(filters=32, kernel_size=(3, 3)),
         Dropout(0.2),
-        Attention(32),
         Flatten(),
         Dense(1, activation='sigmoid'),
 
@@ -136,10 +193,10 @@ def fit_lstm(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_gene
     scores = model.evaluate_generator(test_generator, steps=5)
     print("{0}s: {1:.2f}%".format(model.metrics_names[1], scores[1] * 100))
 
+    # Save model
     model.save(os.path.join(repo, 'lstm_{0}_{1:.2f}%.h5'.format(timestamp, scores[1] * 100)))
 
-
-    # All LOGGING
+    # Logging summary to file
     string_list = []
     model.summary(print_fn=lambda x: string_list.append(x))
     summary = "\n".join(string_list)
@@ -155,6 +212,80 @@ def fit_lstm(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_gene
     f.close()
 
     return model
+
+
+def fit_attention_lstm():
+    pass
+
+
+def fit_tcn(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_generator):
+    time_steps = 5
+    h, w, c = 255, 255, 3
+
+    steps_per_epoch = train_generator.n // train_generator.batch_size
+    validation_steps = validation_generator.n // validation_generator.batch_size
+
+    inputs = Input(shape=(time_steps, h, w, c))
+    # push time_steps in batch_dim to process all the sequence independently of their orders (CNN features).
+    x = Lambda(lambda y: K.reshape(y, (-1, h, w, c)))(inputs)
+    # apply convolutions to each image
+    x = Conv2D(16, 5)(x)
+    x = MaxPool2D()(x)
+    # reshaping.
+    # 3D input shape (batch, timesteps, input_dim)
+    num_features_cnn = np.prod(K.int_shape(x)[1:])
+    x = Lambda(lambda y: K.reshape(y, (-1, time_steps, num_features_cnn)))(x)
+    # apply the RNN on the time dimension (time_steps dim).
+    x = TCN(16)(x)
+    x = Dense(1, activation='sigmoid')(x)
+
+    model = Model(inputs=[inputs], outputs=[x])
+
+    model = tf.keras.models.Sequential([
+        ConvLSTM2D(filters=32, kernel_size=(3, 3), input_shape=(5, 255, 255, 3), return_sequences=True),
+        ConvLSTM2D(filters=32, kernel_size=(3, 3)),
+        Lambda(lambda y: K.reshape(y, (-1, time_steps, num_features_cnn))),
+        TCN(16),
+        Dense(1, activation='sigmoid'),
+
+    ])
+
+    model.compile(optimizer=Adam(lr=LR), loss='binary_crossentropy', metrics=['acc'])
+
+    print(model.summary())
+    #history = model.fit(train_generator, validation_data=validation_generator, epochs=5)
+    learning_rate_reduction = ReduceLROnPlateau(monitor='val_acc', patience=3, verbose=0, factor=0.5, min_lr=0.00001)
+    history = model.fit(x=train_generator,
+                        epochs=EPOCHS,
+                        steps_per_epoch=steps_per_epoch,
+                        validation_data=validation_generator,
+                        callbacks=[learning_rate_reduction],
+                        verbose=1)
+
+
+    scores = model.evaluate_generator(test_generator, steps=5)
+    print("TCN {0}s: {1:.2f}%".format(model.metrics_names[1], scores[1] * 100))
+
+    # model.save(os.path.join(repo, 'tcn_{0}_{1:.2f}%.h5'.format(timestamp, scores[1] * 100)))
+    #
+    #
+    # # All LOGGING
+    # string_list = []
+    # model.summary(print_fn=lambda x: string_list.append(x))
+    # summary = "\n".join(string_list)
+    #
+    # logging = ['{0}: {1}'.format(key, val[-1]) for key, val in history.history.items()]
+    # log = 'Results:\n' + '\n'.join(logging)
+    #
+    # f = open(os.path.join(repo, 'tcn_summary_{0}.h5'.format(timestamp)),
+    #          'w')
+    # f.write("EPOCHS: {0}\nSteps per epoch: {1}\nValidation steps: {2}\nVal Split:{3}\nLearning RT:{5}\n\n\n{4}"
+    #         "\n\n=========TRAINING LOG========\n{6}".format(EPOCHS, steps_per_epoch, validation_steps, SPLIT, summary,
+    #                                                         LR, log))
+    # f.close()
+
+    return model, history, scores
+
 
 def fit_ada_boost(features, labels,reg=False):
     param_dist = {
@@ -397,10 +528,10 @@ def fit_LSTM_reg(features, labels):
     train_univariate = train_univariate.cache().shuffle(BUFFER_SIZE).batch(BATCH_SIZE).repeat()
 
     lstm_model = tf.keras.models.Sequential([
-        layers.LSTM(64, input_shape=features.shape[-2:]),  # The input shape is [Timestamp X features]
-        layers.Dense(32, activation='relu'),
-        layers.Dense(16, activation='relu'),
-        layers.Dense(1)
+        LSTM(64, input_shape=features.shape[-2:]),  # The input shape is [Timestamp X features]
+        Dense(32, activation='relu'),
+        Dense(16, activation='relu'),
+        Dense(1)
     ])
 
     lstm_model.compile(optimizer='adam', loss='mae')

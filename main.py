@@ -4,6 +4,7 @@ import feature_engineering as fe
 import image_conversion as ic
 import os
 import numpy as np
+import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tcn import TCN
 
@@ -52,10 +53,17 @@ train_generator, validation_generator, test_generator = fe.load_data(image_path=
 print("CNN Model")
 cnn_load_model = True
 if not cnn_load_model:
-    model = md.fit_cnn(EPOCHS=50, SPLIT=0.2, LR=0.001,
+    epochs, split, lr = 5, 0.2, 0.01
+    model, history, scores = md.fit_cnn(EPOCHS=epochs, SPLIT=split, LR=lr,
                        train_generator=train_generator, validation_generator=validation_generator, test_generator=test_generator)
+
+    md.model_save_and_logging(model, history, scores, 'cnn', epochs, split, lr)
+    md.model_plot('cnn', history.history, PLOT_PATH)
+
 else:
     model = load_model('models/cnn_20210424155515_59.38%.h5')
+    #history = np.load('models/tcn_history_20210427104115_55.00%.npy', allow_pickle='TRUE').item()
+    #md.model_plot('tcn', history, PLOT_PATH)
     scores = model.evaluate(test_generator, steps=5)
     print("Accuracy of the CNN on test set : {0:.2f}%".format(scores[1] * 100))
 
@@ -63,30 +71,56 @@ else:
 train_generator, validation_generator, test_generator = fe.load_time_series_data(image_path=IMAGES_PATH)
 
 print("LSTM Model")
+tf.keras.backend.clear_session()
 lstm_load_model = True
 if not lstm_load_model:
-    model = md.fit_lstm(EPOCHS=1, SPLIT=0.2, LR=0.001,
+    model, history, scores = md.fit_lstm(EPOCHS=1, SPLIT=0.2, LR=0.001,
                        train_generator=train_generator, validation_generator=validation_generator, test_generator=test_generator)
+
+    md.model_save_and_logging(model, history, scores, 'lstm', epochs, split, lr)
+    md.model_plot('lstm', history.history, PLOT_PATH)
+
 else:
     model = load_model('models/lstm_20210424175024_56.25%.h5')
+    #history = np.load('models/tcn_history_20210427104115_55.00%.npy', allow_pickle='TRUE').item()
+    #md.model_plot('tcn', history, PLOT_PATH)
+
     scores = model.evaluate(test_generator, steps=5)
     print("Accuracy of the LSTM on test set : {0:.2f}%".format(scores[1] * 100))
 
+print("Attention Model")
+attn_load_model = False
+tf.keras.backend.clear_session()
+if not attn_load_model:
+    epochs, split, lr = 50, 0.2, 0.01
+    model, history, scores = md.fit_attention_lstm(EPOCHS=epochs, SPLIT=split, LR=lr,
+                                                   train_generator=train_generator,
+                                                   validation_generator=validation_generator,
+                                                   test_generator=test_generator)
 
-print("TCN Model")
-tcn_load_model = False
-if not tcn_load_model:
-    epochs, split, lr = 2, 0.3, 0.001
-    model, history, scores = md.fit_tcn(EPOCHS=epochs, SPLIT=split, LR=lr,
-                       train_generator=train_generator, validation_generator=validation_generator, test_generator=test_generator)
-
-    md.model_save_and_logging(model, history, scores, 'tcn', epochs, split, lr)
+    md.model_save_and_logging(model, history, scores, 'Attention-LSTM', epochs, split, lr)
+    md.model_plot('Attention-LSTM', history.history, PLOT_PATH)
 
 else:
-    model = load_model('models/tcn_20210427145307_45.00%.h5', custom_objects={'TCN': TCN})
-    history = np.load('models/tcn_history_20210427145307_45.00%.npy', allow_pickle='TRUE').item()
-    print(history)
-    # md.model_plot('tcn', history)
+    model = load_model('models/lstm_20210424175024_56.25%.h5')
+    scores = model.evaluate(test_generator, steps=5)
+    print("Accuracy of the Attention LSTM on test set : {0:.2f}%".format(scores[1] * 100))
+
+print("TCN Model")
+tf.keras.backend.clear_session()
+tcn_load_model = False
+if not tcn_load_model:
+    epochs, split, lr = 15, 0.2, 0.01
+    model, history, scores = md.fit_tcn(EPOCHS=epochs, SPLIT=split, LR=lr, train_generator=train_generator, validation_generator=validation_generator, test_generator=test_generator)
+
+    md.model_save_and_logging(model, history, scores, 'tcn', epochs, split, lr)
+    md.model_plot('tcn', history.history, PLOT_PATH)
+
+else:
+    model = load_model('models/tcn_20210427104115_55.00%.h5', custom_objects={'TCN': TCN})
+    history = np.load('models/tcn_history_20210427104115_55.00%.npy', allow_pickle='TRUE').item()
+#    print(history)
+    md.model_plot('tcn', history, PLOT_PATH)
 
     scores = model.evaluate(test_generator, steps=5)
     print("Accuracy of the TCN on test set : {0:.2f}%".format(scores[1] * 100))

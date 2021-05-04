@@ -141,26 +141,8 @@ def fit_cnn(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_gener
     scores = model.evaluate_generator(test_generator, steps=5)
     print("{0}s: {1:.2f}%".format(model.metrics_names[1], scores[1] * 100))
 
-    # model.save(os.path.join(repo, 'cnn_{0}_{1:.2f}%.h5'.format(timestamp, scores[1] * 100)))
-    #
-    #
-    # # Logging summary to file
-    # string_list = []
-    # model.summary(print_fn=lambda x: string_list.append(x))
-    # summary = "\n".join(string_list)
-    #
-    # logging = ['{0}: {1}'.format(key, val[-1]) for key, val in history.history.items()]
-    # log = 'Results:\n' + '\n'.join(logging)
-    #
-    # f = open(os.path.join(repo, 'cnn_summary_{0}.h5'.format(timestamp)),
-    #          'w')
-    # f.write("EPOCHS: {0}\nSteps per epoch: {1}\nValidation steps: {2}\nVal Split:{3}\nLearning RT:{5}\n\n\n{4}"
-    #         "\n\n=========TRAINING LOG========\n{6}".format(EPOCHS, steps_per_epoch, validation_steps, SPLIT, summary,
-    #                                                         LR, log))
-    # f.close()
-
     
-    return model
+    return model, history, scores
 
 
 def fit_lstm(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_generator):
@@ -190,25 +172,25 @@ def fit_lstm(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_gene
     scores = model.evaluate_generator(test_generator, steps=5)
     print("{0}s: {1:.2f}%".format(model.metrics_names[1], scores[1] * 100))
 
-    # Save model
-    model.save(os.path.join(repo, 'lstm_{0}_{1:.2f}%.h5'.format(timestamp, scores[1] * 100)))
+    # # Save model
+    # model.save(os.path.join(repo, 'lstm_{0}_{1:.2f}%.h5'.format(timestamp, scores[1] * 100)))
+    #
+    # # Logging summary to file
+    # string_list = []
+    # model.summary(print_fn=lambda x: string_list.append(x))
+    # summary = "\n".join(string_list)
+    #
+    # logging = ['{0}: {1}'.format(key, val[-1]) for key, val in history.history.items()]
+    # log = 'Results:\n' + '\n'.join(logging)
+    #
+    # f = open(os.path.join(repo, 'lstm_summary_{0}.h5'.format(timestamp)),
+    #          'w')
+    # f.write("EPOCHS: {0}\nSteps per epoch: {1}\nValidation steps: {2}\nVal Split:{3}\nLearning RT:{5}\n\n\n{4}"
+    #         "\n\n=========TRAINING LOG========\n{6}".format(EPOCHS, steps_per_epoch, validation_steps, SPLIT, summary,
+    #                                                         LR, log))
+    # f.close()
 
-    # Logging summary to file
-    string_list = []
-    model.summary(print_fn=lambda x: string_list.append(x))
-    summary = "\n".join(string_list)
-
-    logging = ['{0}: {1}'.format(key, val[-1]) for key, val in history.history.items()]
-    log = 'Results:\n' + '\n'.join(logging)
-
-    f = open(os.path.join(repo, 'lstm_summary_{0}.h5'.format(timestamp)),
-             'w')
-    f.write("EPOCHS: {0}\nSteps per epoch: {1}\nValidation steps: {2}\nVal Split:{3}\nLearning RT:{5}\n\n\n{4}"
-            "\n\n=========TRAINING LOG========\n{6}".format(EPOCHS, steps_per_epoch, validation_steps, SPLIT, summary,
-                                                            LR, log))
-    f.close()
-
-    return model
+    return model, history, scores
 
 
 def fit_attention_lstm(EPOCHS, SPLIT, LR, train_generator, validation_generator, test_generator):
